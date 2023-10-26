@@ -39,12 +39,15 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var imageView: CropImageView
     lateinit var textView: TextView
+    lateinit var textViewStatus: TextView
     lateinit var selectImage: Button
     lateinit var predictButton: Button
     lateinit var switchAddDetection: SwitchCompat
     lateinit var imageUri: Uri
     lateinit var bitmap: Bitmap
-    lateinit var imageProcessor:ImageProcessor
+    lateinit var imageProcessor: ImageProcessor
+
+    var startTime: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,13 +55,14 @@ class MainActivity : AppCompatActivity() {
 
         imageView = findViewById(R.id.imageView)
         textView = findViewById(R.id.textView)
+        textViewStatus = findViewById(R.id.status)
         selectImage = findViewById(R.id.selectButton)
         predictButton = findViewById(R.id.predictButton)
         switchAddDetection = findViewById(R.id.switchAddDetection)
         textView.setMovementMethod(ScrollingMovementMethod())
 
 
-         imageProcessor = ImageProcessor.Builder()
+        imageProcessor = ImageProcessor.Builder()
             .add(ResizeOp(320, 320, ResizeOp.ResizeMethod.BILINEAR))
             .build()
 
@@ -73,15 +77,21 @@ class MainActivity : AppCompatActivity() {
         predictButton.setOnClickListener {
 
             val addDetection = switchAddDetection.isChecked
+            startTime = System.currentTimeMillis()
             if (addDetection) {
-                detectTextTensorEast()
 
-            }else{
+                detectTextTensorEast()
+                val totalTime = (System.currentTimeMillis() - startTime)/1000.0
+                textViewStatus.text = "Inference Time:- $totalTime sec"
+
+            } else {
                 try {
                     val croppedBitmap = imageView.getCroppedImage()
                     croppedBitmap?.let {
                         textView.text = "Predicting"
                         val res = getTextFromTessaract(croppedBitmap)
+                        val totalTime = (System.currentTimeMillis() - startTime)/1000.0
+                        textViewStatus.text = "Inference Time:- $totalTime sec"
                         textView.text = res
                     }
                 } catch (e: Exception) {
@@ -92,9 +102,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun detectTextTensorEast(){
+    private fun detectTextTensorEast() {
         var tensorImage = TensorImage(DataType.FLOAT32)
-        val croppedBitmap = imageView.getCroppedImage()?:return
+        val croppedBitmap = imageView.getCroppedImage() ?: return
 //        val croppedBitmap = bitmap
         tensorImage.load(croppedBitmap)
         val rW = (croppedBitmap.width.toFloat() / 320.0).toFloat()
@@ -110,7 +120,7 @@ class MainActivity : AppCompatActivity() {
 
         val outputFeature0 = outputs.outputFeature0AsTensorBuffer
         val outputFeature1 = outputs.outputFeature1AsTensorBuffer
-        postProcessing(outputFeature0, outputFeature1, rH, rW,croppedBitmap)
+        postProcessing(outputFeature0, outputFeature1, rH, rW, croppedBitmap)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -254,7 +264,7 @@ class MainActivity : AppCompatActivity() {
         outputFeature1: TensorBuffer,
         rH: Float,
         rW: Float,
-        bitmapFromCropImage:Bitmap
+        bitmapFromCropImage: Bitmap
     ) {
         var score = convertToMultiDimArray(outputFeature0)
         var geo = convertToMultiDimArray(outputFeature1)
@@ -324,7 +334,7 @@ class MainActivity : AppCompatActivity() {
 
         val boxes: MutableList<Rect> = mutableListOf()
 
-        if (indicesMat==null || indicesMat.empty()){
+        if (indicesMat == null || indicesMat.empty()) {
             return
         }
         for (i in indicesMat.toArray()) {
